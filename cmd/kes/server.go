@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -334,6 +335,13 @@ func startDevServer(addr string) error {
 		return err
 	}
 
+	// Write API key to temporary file for dev access
+	keyFile := filepath.Join(os.TempDir(), "kes-dev-apikey.txt")
+	if err := os.WriteFile(keyFile, []byte(apiKey.String()), 0o600); err != nil {
+		return fmt.Errorf("failed to write API key file: %w", err)
+	}
+	defer os.Remove(keyFile)
+
 	tlsConf := &tls.Config{
 		MinVersion:   tls.VersionTLS12,
 		NextProtos:   []string{"h2", "http/1.1"},
@@ -373,7 +381,7 @@ func startDevServer(addr string) error {
 	fmt.Fprintln(buf)
 	fmt.Fprintf(buf, "%-33s https://min.io/docs/kes\n", blue.Render("Docs"))
 	fmt.Fprintln(buf)
-	fmt.Fprintf(buf, "%-33s [REDACTED]\n", blue.Render("API Key"))
+	fmt.Fprintf(buf, "%-33s %s\n", blue.Render("API Key"), keyFile)
 	fmt.Fprintf(buf, "%-33s %s\n", blue.Render("Admin"), apiKey.Identity())
 	fmt.Fprintf(buf, "%-33s error=stderr level=%s\n", blue.Render("Logs"), srv.ErrLevel.Level())
 	fmt.Fprintf(buf, "%-11s audit=stdout level=%s\n", " ", srv.AuditLevel.Level())
