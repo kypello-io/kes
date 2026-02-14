@@ -2,21 +2,14 @@ version: 2
 project_name: kes
 
 release:
-   name_template: Release {{ replace .CommitDate ":" "-" }}
-
-   github:
-    owner: minio
+  github:
+    owner: kypello-io
     name: kes
-
-before:
-  hooks:
-    - go mod tidy
-    - bash -c 'git diff --quiet || (echo "Repo contains modified files. Run git checkout" && exit 1)'
-    - bash -c '[[ {{ .Tag }} == {{ replace .CommitDate ":" "-" }} ]] || (echo Invalid release tag. Run git tag {{ replace .CommitDate ":" "-" }} && exit 1)'
+  name_template: "v{{.Version}}"
+  mode: append
 
 builds:
-  -
-    main: ./cmd/kes
+  - main: ./cmd/kes
     goos:
       - linux
       - darwin
@@ -33,94 +26,65 @@ builds:
       - CGO_ENABLED=0
     flags:
       - -trimpath
-      - -buildvcs=true
     ldflags:
-      - "-s -w"
+      - -s -w
+      - -X github.com/minio/kes/internal/sys.version={{.Version}}
+      - -X github.com/minio/kes/internal/sys.commitID={{.FullCommit}}
 
 archives:
-  -
-    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
-    format: binary
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
 
 nfpms:
-  -
-    vendor: MinIO, Inc.
-    homepage: https://github.com/minio/kes
-    maintainer: MinIO Development <dev@min.io>
+  - vendor: Kypello
+    homepage: https://github.com/kypello-io/kes
+    maintainer: Kypello <dev@kypello.io>
     description: KES is a stateless and distributed key-management system for high-performance applications
-    license: GNU Affero General Public License v3.0
-    formats:
-      - deb
-      - rpm
+    license: AGPL-3.0
+    bindir: /usr/bin
+    formats: [deb, rpm, apk]
+    contents:
+      - src: LICENSE
+        dst: /usr/share/kes/LICENSE
 
 signs:
-  -
-    signature: "${artifact}.minisig"
-    cmd: "sh"
+  - cmd: cosign
+    artifacts: checksum
+    output: true
     args:
-      - '-c'
-      - 'minisign -s /media/${USER}/minio/minisign.key -Sm ${artifact} < /media/${USER}/minio/minisign-passphrase'
-    artifacts: all
+      - sign-blob
+      - --yes
+      - --bundle=${signature}
+      - ${artifact}
+    signature: ${artifact}.sigstore.json
 
-snapshot:
-  version_template: '{{ replace .CommitDate ":" "-" }}'
+docker_signs:
+  - cmd: cosign
+    args: [sign, --yes, ${artifact}]
+    artifacts: manifests
+
+kos:
+  - repositories:
+      - ghcr.io/kypello-io/kes
+    tags:
+      - "{{.Version}}"
+      - "{{.Tag}}"
+      - latest
+    bare: true
+    base_image: cgr.dev/chainguard/static
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    sbom: none
+
+sboms:
+  - artifacts: archive
+
+checksum:
+  algorithm: sha256
 
 changelog:
-  sort: asc
-
-dockers:
-- image_templates:
-  - minio/kes:{{ replace .CommitDate ":" "-" }}-amd64
-  use: buildx
-  dockerfile: Dockerfile
-  extra_files:
-    - LICENSE
-    - CREDITS
-  build_flag_templates:
-  - '--platform=linux/amd64'
-  - '--build-arg=TAG={{ replace .CommitDate ":" "-" }}'
-- image_templates:
-  - quay.io/minio/kes:{{ replace .CommitDate ":" "-" }}-amd64
-  use: buildx
-  dockerfile: Dockerfile
-  extra_files:
-    - LICENSE
-    - CREDITS
-  build_flag_templates:
-  - '--platform=linux/amd64'
-  - '--build-arg=TAG={{ replace .CommitDate ":" "-" }}'
-- image_templates:
-  - minio/kes:{{ replace .CommitDate ":" "-" }}-arm64
-  use: buildx
-  goarch: arm64
-  dockerfile: Dockerfile
-  extra_files:
-    - LICENSE
-    - CREDITS
-  build_flag_templates:
-  - '--platform=linux/arm64'
-  - '--build-arg=TAG={{ replace .CommitDate ":" "-" }}'
-- image_templates:
-  - quay.io/minio/kes:{{ replace .CommitDate ":" "-" }}-arm64
-  use: buildx
-  goarch: arm64
-  dockerfile: Dockerfile
-  extra_files:
-    - LICENSE
-    - CREDITS
-  build_flag_templates:
-  - '--platform=linux/arm64'
-  - '--build-arg=TAG={{ replace .CommitDate ":" "-" }}'
-docker_manifests:
-- name_template: minio/kes:{{ replace .CommitDate ":" "-" }}
-  image_templates:
-  - minio/kes:{{ replace .CommitDate ":" "-" }}-amd64
-  - minio/kes:{{ replace .CommitDate ":" "-" }}-arm64
-- name_template: quay.io/minio/kes:{{ replace .CommitDate ":" "-" }}
-  image_templates:
-  - quay.io/minio/kes:{{ replace .CommitDate ":" "-" }}-amd64
-  - quay.io/minio/kes:{{ replace .CommitDate ":" "-" }}-arm64
-- name_template: minio/kes:latest
-  image_templates:
-  - minio/kes:{{ replace .CommitDate ":" "-" }}-amd64
-  - minio/kes:{{ replace .CommitDate ":" "-" }}-arm64
+  disable: true

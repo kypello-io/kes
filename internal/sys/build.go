@@ -12,6 +12,13 @@ import (
 	"sync"
 )
 
+// Populated by goreleaser ldflags at build time.
+// When empty, falls back to VCS build info.
+var (
+	version  string
+	commitID string
+)
+
 // BinaryInfo contains build information about a Go binary.
 type BinaryInfo struct {
 	Version  string // The version of this binary
@@ -36,6 +43,18 @@ var readBinaryInfo = sync.OnceValues[BinaryInfo, error](func() (BinaryInfo, erro
 		Compiler: DefaultCompiler,
 	}
 
+	// Prefer ldflags values injected by goreleaser at build time.
+	if version != "" {
+		binaryInfo.Version = version
+	}
+	if commitID != "" {
+		binaryInfo.CommitID = commitID
+	}
+	if binaryInfo.Version != DefaultVersion && binaryInfo.CommitID != DefaultCommitID {
+		return binaryInfo, nil
+	}
+
+	// Fall back to VCS build info for local `go build`.
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
 		return binaryInfo, errors.New("sys: binary does not contain build info")
@@ -49,9 +68,13 @@ var readBinaryInfo = sync.OnceValues[BinaryInfo, error](func() (BinaryInfo, erro
 	for _, setting := range info.Settings {
 		switch setting.Key {
 		case GitTimeKey:
-			binaryInfo.Version = strings.ReplaceAll(setting.Value, ":", "-")
+			if binaryInfo.Version == DefaultVersion {
+				binaryInfo.Version = strings.ReplaceAll(setting.Value, ":", "-")
+			}
 		case GitRevisionKey:
-			binaryInfo.CommitID = setting.Value
+			if binaryInfo.CommitID == DefaultCommitID {
+				binaryInfo.CommitID = setting.Value
+			}
 		case CompilerKey:
 			binaryInfo.Compiler = setting.Value
 		}
