@@ -28,6 +28,10 @@ linters:
         text: 'package-comments: should have a package comment'
       - path: (.+)\.go$
         text: 'exitAfterDefer:'
+      - path: (.+)\.go$
+        text: 'var-naming: avoid meaningless package names'
+      - path: (.+)\.go$
+        text: 'var-naming: avoid package names that conflict with Go standard library package names'
     paths:
       - third_party$
       - builtin$
