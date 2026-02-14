@@ -38,7 +38,7 @@ jobs:
       - name: Lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.6.0
+          version: v2.9.0
           args: --config ./.golangci.yml --timeout=5m --tests=false
   test:
     name: Test ${{ matrix.os }}
