@@ -6,7 +6,6 @@ release:
     owner: kypello-io
     name: kes
   name_template: "v{{.Version}}"
-  mode: append
 
 builds:
   - main: ./cmd/kes
