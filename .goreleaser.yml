@@ -63,7 +63,10 @@ signs:
 
 docker_signs:
   - cmd: cosign
-    args: [sign, --yes, ${artifact}]
+    args:
+      - sign
+      - --yes
+      - ${artifact}
     artifacts: manifests
 
 kos:
